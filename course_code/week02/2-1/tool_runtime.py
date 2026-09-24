@@ -109,8 +109,10 @@ class ToolRuntime:
 
         for attempt in range(1, tool.max_retries + 2):
             try:
-                async with asyncio.timeout(tool.timeout_seconds):
-                    raw_output = await tool.handler(args, ctx)
+                raw_output = await asyncio.wait_for(
+                    tool.handler(args, ctx),
+                    timeout=tool.timeout_seconds,
+                )
 
                 output = tool.output_model.model_validate(raw_output)
                 await self._write_trace(
@@ -122,7 +124,7 @@ class ToolRuntime:
                 )
                 return success_message(call, output)
 
-            except TimeoutError:
+            except (asyncio.TimeoutError, TimeoutError):
                 error = ToolError(
                     code="TIMEOUT",
                     message="工具执行超时",
